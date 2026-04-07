@@ -86,7 +86,7 @@ python download_snapchat_memories_gui.py
 8. **Download the ZIP** when you receive the email from Snapchat
 
 > **Note:** If you have multiple zip files available for download, only the first (non-numbered) folder contains the `memories_history.json` file. The JSON contains all memories from the request, regardless of only being located in the first folder.
-> 
+>
 9. **Extract the ZIP** (right-click → "Extract All..." on Windows):
 
    ![Unzipped Folder](images/Unzipped_folder.png)
@@ -111,7 +111,7 @@ python download_snapchat_memories_gui.py
    ![Application with Paths Selected](images/application_screen_with_paths.png)
 
 4. **Configure Options (Optional)**
-   
+
    **Resume Options:**
    - **Skip existing files (resume mode)** — Enable this to avoid re-downloading files that already exist
      - Useful when resuming after an interruption or adding new memories
@@ -121,7 +121,7 @@ python download_snapchat_memories_gui.py
      - Checks codec of existing videos and re-converts non-H.264 videos
      - Helps ensure all videos are compatible with Windows Media Player and other tools
      - Skips videos already in H.264 format to save time
-   
+
    **Timezone Handling:**
    - **Use GPS coordinates to determine local timezone** — Recommended, enabled by default
      - Automatically detects local timezone from photo/video GPS location

@@ -6,8 +6,9 @@ from pathlib import Path
 HAS_PIEXIF = False
 _PIEXIF_IMPORT_ERROR = None
 try:
-    from PIL import Image, ImageOps
     import piexif
+    from PIL import Image, ImageOps
+
     HAS_PIEXIF = True
 except Exception as e:
     HAS_PIEXIF = False
@@ -25,9 +26,11 @@ def decimal_to_dms(decimal):
     return ((degrees, 1), (minutes, 1), (int(seconds * 100), 100))
 
 
-def set_image_exif_metadata(file_path, date_obj, latitude, longitude, timezone_offset=None):
+def set_image_exif_metadata(
+    file_path, date_obj, latitude, longitude, timezone_offset=None
+):
     """Set EXIF metadata for JPEG image files using piexif (if available).
-    
+
     Args:
         file_path: Path to the JPEG file
         date_obj: datetime object with timezone info (local time)
@@ -36,7 +39,10 @@ def set_image_exif_metadata(file_path, date_obj, latitude, longitude, timezone_o
         timezone_offset: Timezone offset string like '-05:00' (EXIF 2.31 standard)
     """
     if not HAS_PIEXIF:
-        logging.debug("Skipping EXIF metadata: piexif/Pillow not available: %s", _PIEXIF_IMPORT_ERROR)
+        logging.debug(
+            "Skipping EXIF metadata: piexif/Pillow not available: %s",
+            _PIEXIF_IMPORT_ERROR,
+        )
         return False
 
     file_path = str(file_path)
@@ -44,12 +50,14 @@ def set_image_exif_metadata(file_path, date_obj, latitude, longitude, timezone_o
         img = Image.open(file_path)
         img_format = img.format
         img.close()
-    except Exception as e:
+    except Exception:
         logging.exception("Failed to open image for EXIF write: %s", file_path)
         return False
 
-    if img_format not in ['JPEG', 'JPG']:
-        logging.debug("Image is not JPEG, skipping EXIF write: %s (%s)", file_path, img_format)
+    if img_format not in ["JPEG", "JPG"]:
+        logging.debug(
+            "Image is not JPEG, skipping EXIF write: %s (%s)", file_path, img_format
+        )
         return False
 
     try:
@@ -58,19 +66,19 @@ def set_image_exif_metadata(file_path, date_obj, latitude, longitude, timezone_o
         except Exception:
             exif_dict = {"0th": {}, "Exif": {}, "GPS": {}, "1st": {}, "thumbnail": None}
 
-        date_str = date_obj.strftime("%Y:%m:%d %H:%M:%S").encode('ascii')
+        date_str = date_obj.strftime("%Y:%m:%d %H:%M:%S").encode("ascii")
         exif_dict["Exif"][piexif.ExifIFD.DateTimeOriginal] = date_str
         exif_dict["Exif"][piexif.ExifIFD.DateTimeDigitized] = date_str
         exif_dict["0th"][piexif.ImageIFD.DateTime] = date_str
-        
+
         # Normalize orientation: we apply exif_transpose below when saving,
         # so the pixel data will be in correct display orientation.
         # Set Orientation=1 (normal) to prevent viewers from rotating again.
         exif_dict["0th"][piexif.ImageIFD.Orientation] = 1
-        
+
         # Add timezone offset tags (EXIF 2.31 standard)
         if timezone_offset:
-            offset_bytes = timezone_offset.encode('ascii')
+            offset_bytes = timezone_offset.encode("ascii")
             try:
                 exif_dict["Exif"][piexif.ExifIFD.OffsetTimeOriginal] = offset_bytes
                 exif_dict["Exif"][piexif.ExifIFD.OffsetTimeDigitized] = offset_bytes
@@ -84,9 +92,13 @@ def set_image_exif_metadata(file_path, date_obj, latitude, longitude, timezone_o
             lon_dms = decimal_to_dms(longitude)
 
             exif_dict["GPS"][piexif.GPSIFD.GPSLatitude] = lat_dms
-            exif_dict["GPS"][piexif.GPSIFD.GPSLatitudeRef] = b"N" if latitude >= 0 else b"S"
+            exif_dict["GPS"][piexif.GPSIFD.GPSLatitudeRef] = (
+                b"N" if latitude >= 0 else b"S"
+            )
             exif_dict["GPS"][piexif.GPSIFD.GPSLongitude] = lon_dms
-            exif_dict["GPS"][piexif.GPSIFD.GPSLongitudeRef] = b"E" if longitude >= 0 else b"W"
+            exif_dict["GPS"][piexif.GPSIFD.GPSLongitudeRef] = (
+                b"E" if longitude >= 0 else b"W"
+            )
 
         exif_bytes = piexif.dump(exif_dict)
 
@@ -112,7 +124,9 @@ def set_image_exif_metadata(file_path, date_obj, latitude, longitude, timezone_o
                     temp_path.unlink()
                 except Exception:
                     pass
-            logging.exception("Failed to save EXIF metadata to temporary file for %s", file_path)
+            logging.exception(
+                "Failed to save EXIF metadata to temporary file for %s", file_path
+            )
             return False
 
     except Exception:

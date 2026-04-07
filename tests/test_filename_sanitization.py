@@ -1,15 +1,17 @@
 """
 Test filename sanitation and path handling to prevent trailing braces and invalid characters.
 """
-import sys
+
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+
 import pytest
-from pathlib import Path
-import tempfile
-import video_utils
+
 import snap_utils
+import video_utils
 
 
 def test_sanitize_path_removes_trailing_braces():
@@ -22,14 +24,16 @@ def test_sanitize_path_removes_trailing_braces():
         ("file.mp4\t", "file.mp4"),  # Trailing tab
         ("file.mp4{ }", "file.mp4"),  # Trailing brace and space
     ]
-    
+
     for input_path, expected_name in test_cases:
         result = video_utils.sanitize_path(input_path)
         assert result is not None, f"sanitize_path returned None for {input_path}"
-        assert result.name == expected_name, f"Expected {expected_name}, got {result.name}"
+        assert result.name == expected_name, (
+            f"Expected {expected_name}, got {result.name}"
+        )
         # Ensure no trailing problematic characters
-        assert not str(result).endswith('}'), f"Path still ends with brace: {result}"
-        assert not str(result).endswith(' '), f"Path still ends with space: {result}"
+        assert not str(result).endswith("}"), f"Path still ends with brace: {result}"
+        assert not str(result).endswith(" "), f"Path still ends with space: {result}"
 
 
 def test_sanitize_path_returns_absolute():
@@ -58,7 +62,7 @@ def test_filename_composition_no_format_injection():
     # Sanitize should handle this
     result = video_utils.sanitize_path(test_filename)
     # The braces should either be stripped or the filename should be safe
-    assert '}' not in str(result).split('.')[-2], f"Unsafe braces in filename: {result}"
+    assert "}" not in str(result).split(".")[-2], f"Unsafe braces in filename: {result}"
 
 
 if __name__ == "__main__":

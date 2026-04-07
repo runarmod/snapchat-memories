@@ -1,26 +1,32 @@
 import logging
 import os
-import time
-import requests
-from pathlib import Path
-import zip_utils
-import snap_utils
-from pathlib import Path
-import tempfile
 import threading
+import time
+from pathlib import Path
+
+import requests
+
+import zip_utils
 
 # Thread-local storage for unique temporary file suffixes
 _thread_local = threading.local()
 
+
 def _get_thread_id():
     """Get a unique identifier for the current thread."""
-    if not hasattr(_thread_local, 'thread_id'):
+    if not hasattr(_thread_local, "thread_id"):
         _thread_local.thread_id = threading.get_ident()
     return _thread_local.thread_id
 
 
-
-def download_media(url, output_path, max_retries=3, progress_callback=None, date_obj=None, merge_overlay=True):
+def download_media(
+    url,
+    output_path,
+    max_retries=3,
+    progress_callback=None,
+    date_obj=None,
+    merge_overlay=True,
+):
     last_error = None
 
     # Normalize merge_overlay to string mode for consistent handling
@@ -33,7 +39,7 @@ def download_media(url, output_path, max_retries=3, progress_callback=None, date
         merge_mode = "both"
     else:
         merge_mode = "merge"  # Safe default
-    
+
     # Create thread-safe temporary file path
     output_path = Path(output_path)
     thread_id = _get_thread_id()
@@ -43,7 +49,7 @@ def download_media(url, output_path, max_retries=3, progress_callback=None, date
     for attempt in range(max_retries):
         try:
             if attempt > 0:
-                wait_time = 2 ** attempt
+                wait_time = 2**attempt
                 msg = f"Retry attempt {attempt + 1}/{max_retries} after {wait_time}s wait..."
                 logging.info(msg)
                 if progress_callback:
@@ -56,7 +62,7 @@ def download_media(url, output_path, max_retries=3, progress_callback=None, date
             # Log the URL and output path for debugging duplicate file issues
             logging.info(f"Downloading from: {url}")
             logging.info(f"Saving to: {output_path}")
-            
+
             response = requests.get(url, stream=True, timeout=60)
             response.raise_for_status()
 
@@ -71,17 +77,21 @@ def download_media(url, output_path, max_retries=3, progress_callback=None, date
 
             magic = first_chunk[:32]
 
-            is_html = (magic[:5].lower() == b'<!doc' or
-                       magic[:5].lower() == b'<html' or
-                       b'<html' in magic.lower() or
-                       b'<!doctype' in magic.lower())
+            is_html = (
+                magic[:5].lower() == b"<!doc"
+                or magic[:5].lower() == b"<html"
+                or b"<html" in magic.lower()
+                or b"<!doctype" in magic.lower()
+            )
             if is_html:
                 last_error = Exception("HTML page instead of media file")
                 if progress_callback:
-                    progress_callback("Downloaded content is HTML (likely an error page), will retry if possible")
+                    progress_callback(
+                        "Downloaded content is HTML (likely an error page), will retry if possible"
+                    )
                 continue
 
-            is_valid_zip = magic[:4] == b'PK\x03\x04'
+            is_valid_zip = magic[:4] == b"PK\x03\x04"
             if is_valid_zip:
                 # Use thread-safe temp path for ZIP
                 zip_path = str(output_path) + temp_suffix + ".zip"
@@ -91,7 +101,7 @@ def download_media(url, output_path, max_retries=3, progress_callback=None, date
                 write_path = str(output_path) + temp_suffix
 
             try:
-                with open(write_path, 'wb') as fd:
+                with open(write_path, "wb") as fd:
                     fd.write(first_chunk)
                     bytes_written = len(first_chunk)
                     for chunk in iterator:
@@ -101,7 +111,9 @@ def download_media(url, output_path, max_retries=3, progress_callback=None, date
                 logging.info(f"Wrote {bytes_written} bytes to {write_path}")
             except Exception as write_err:
                 last_error = write_err
-                logging.warning(f"Failed writing downloaded file to {write_path}: {write_err}")
+                logging.warning(
+                    f"Failed writing downloaded file to {write_path}: {write_err}"
+                )
                 try:
                     if os.path.exists(write_path):
                         os.remove(write_path)
@@ -113,26 +125,42 @@ def download_media(url, output_path, max_retries=3, progress_callback=None, date
                 try:
                     if progress_callback:
                         progress_callback("Downloaded ZIP archive, processing...")
-                    
+
                     # Only attempt overlay merge if user wants merged or both versions
                     if merge_mode in ("merge", "both"):
-                        merged = zip_utils.process_zip_overlay(write_path, str(Path(output_path).parent), date_obj)
+                        merged = zip_utils.process_zip_overlay(
+                            write_path, str(Path(output_path).parent), date_obj
+                        )
                         if merged:
                             if merge_mode == "both":
                                 # "Both" mode: also extract the original (no overlay) version
-                                logging.info("Both mode: extracting original media alongside merged overlay")
-                                original_extracted = zip_utils.extract_original_from_zip(
-                                    write_path, str(output_path)
+                                logging.info(
+                                    "Both mode: extracting original media alongside merged overlay"
+                                )
+                                original_extracted = (
+                                    zip_utils.extract_original_from_zip(
+                                        write_path, str(output_path)
+                                    )
                                 )
                                 try:
                                     os.remove(write_path)
                                 except Exception:
                                     pass
                                 if original_extracted:
-                                    logging.info(f"Both mode: merged={merged}, original={output_path}")
-                                    return (True, {"merged": merged, "original": str(output_path)})
+                                    logging.info(
+                                        f"Both mode: merged={merged}, original={output_path}"
+                                    )
+                                    return (
+                                        True,
+                                        {
+                                            "merged": merged,
+                                            "original": str(output_path),
+                                        },
+                                    )
                                 else:
-                                    logging.warning("Both mode: could not extract original, returning merged only")
+                                    logging.warning(
+                                        "Both mode: could not extract original, returning merged only"
+                                    )
                                     return (True, merged)
                             else:
                                 # Merge-only mode (existing behavior)
@@ -143,7 +171,9 @@ def download_media(url, output_path, max_retries=3, progress_callback=None, date
                                 logging.info(f"Created merged images: {merged}")
                                 return (True, merged)
                     else:
-                        logging.info("Overlay merge disabled by user, extracting original media only")
+                        logging.info(
+                            "Overlay merge disabled by user, extracting original media only"
+                        )
 
                     if zip_utils.extract_media_from_zip(write_path, str(output_path)):
                         try:
@@ -153,7 +183,9 @@ def download_media(url, output_path, max_retries=3, progress_callback=None, date
                         # File was extracted directly to output_path
                         final_path = str(output_path)
                     else:
-                        logging.warning(f"Could not extract media from ZIP: {write_path}")
+                        logging.warning(
+                            f"Could not extract media from ZIP: {write_path}"
+                        )
                         # Keep the ZIP with temp suffix
                         final_path = write_path
                 except Exception as zip_err:
@@ -167,7 +199,9 @@ def download_media(url, output_path, max_retries=3, progress_callback=None, date
                     final_path = str(output_path)
                     logging.info(f"Successfully moved to final path: {final_path}")
                 except Exception as rename_err:
-                    logging.error(f"Failed to rename temp file to final path: {rename_err}")
+                    logging.error(
+                        f"Failed to rename temp file to final path: {rename_err}"
+                    )
                     last_error = rename_err
                     try:
                         if os.path.exists(write_path):
@@ -185,14 +219,18 @@ def download_media(url, output_path, max_retries=3, progress_callback=None, date
 
             file_size = os.path.getsize(final_path)
             if file_size < 100:
-                logging.warning(f"Downloaded file too small ({file_size} bytes), attempt {attempt + 1}/{max_retries}")
+                logging.warning(
+                    f"Downloaded file too small ({file_size} bytes), attempt {attempt + 1}/{max_retries}"
+                )
                 try:
                     os.remove(final_path)
                 except Exception:
                     pass
                 last_error = Exception("File too small")
                 if progress_callback:
-                    progress_callback(f"Downloaded file too small ({file_size} bytes), will retry if possible")
+                    progress_callback(
+                        f"Downloaded file too small ({file_size} bytes), will retry if possible"
+                    )
                 continue
 
             msg = f"Successfully downloaded file ({file_size} bytes)"
@@ -203,12 +241,19 @@ def download_media(url, output_path, max_retries=3, progress_callback=None, date
 
         except requests.exceptions.RequestException as req_err:
             last_error = req_err
-            logging.warning(f"Download attempt {attempt + 1}/{max_retries} failed: {req_err}")
+            logging.warning(
+                f"Download attempt {attempt + 1}/{max_retries} failed: {req_err}"
+            )
             if progress_callback:
-                progress_callback(f"Download attempt {attempt + 1}/{max_retries} failed: {req_err}")
+                progress_callback(
+                    f"Download attempt {attempt + 1}/{max_retries} failed: {req_err}"
+                )
             # Clean up any temp files
             try:
-                for pattern in [str(output_path) + temp_suffix, str(output_path) + temp_suffix + ".zip"]:
+                for pattern in [
+                    str(output_path) + temp_suffix,
+                    str(output_path) + temp_suffix + ".zip",
+                ]:
                     if os.path.exists(pattern):
                         os.remove(pattern)
             except Exception:
@@ -216,19 +261,31 @@ def download_media(url, output_path, max_retries=3, progress_callback=None, date
             continue
         except Exception as err:
             last_error = err
-            logging.error(f"Unexpected error during download attempt {attempt + 1}/{max_retries}: {err}", exc_info=True)
+            logging.error(
+                f"Unexpected error during download attempt {attempt + 1}/{max_retries}: {err}",
+                exc_info=True,
+            )
             if progress_callback:
-                progress_callback(f"Unexpected error during download attempt {attempt + 1}/{max_retries}: {err}")
+                progress_callback(
+                    f"Unexpected error during download attempt {attempt + 1}/{max_retries}: {err}"
+                )
             # Clean up any temp files
             try:
-                for pattern in [str(output_path) + temp_suffix, str(output_path) + temp_suffix + ".zip"]:
+                for pattern in [
+                    str(output_path) + temp_suffix,
+                    str(output_path) + temp_suffix + ".zip",
+                ]:
                     if os.path.exists(pattern):
                         os.remove(pattern)
             except Exception:
                 pass
             continue
 
-    logging.error(f"Download failed after {max_retries} attempts. Last error: {last_error}")
+    logging.error(
+        f"Download failed after {max_retries} attempts. Last error: {last_error}"
+    )
     if progress_callback:
-        progress_callback(f"Download failed after {max_retries} attempts. Last error: {last_error}")
+        progress_callback(
+            f"Download failed after {max_retries} attempts. Last error: {last_error}"
+        )
     return (False, None)

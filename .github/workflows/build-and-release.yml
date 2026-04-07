@@ -16,28 +16,28 @@ on:
 jobs:
   build-and-release:
     runs-on: windows-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pyinstaller
-      
+
       - name: Build executable
         run: |
           .\build_exe.bat
         shell: cmd
-      
+
       - name: Verify build output
         run: |
           if (Test-Path "dist\SnapchatMemoriesDownloader.exe") {
@@ -49,7 +49,7 @@ jobs:
             exit 1
           }
         shell: powershell
-      
+
       - name: Determine version
         id: get_version
         run: |
@@ -65,7 +65,7 @@ jobs:
         shell: powershell
         env:
           VERSION_INPUT: ${{ github.event.inputs.version }}
-      
+
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -76,34 +76,34 @@ jobs:
           release_name: Snapchat Memories Downloader ${{ steps.get_version.outputs.VERSION }}
           body: |
             ## Snapchat Memories Downloader ${{ steps.get_version.outputs.VERSION }}
-            
+
             ### 📦 Installation
             1. Download `SnapchatMemoriesDownloader.exe` below
             2. (Optional) Install [FFmpeg](https://ffmpeg.org/download.html) for video conversion
             3. (Optional) Install [VLC](https://www.videolan.org/vlc/) for additional video conversion support
-            
+
             ### 🚀 Features
             - Download all your Snapchat memories with metadata
             - Preserve EXIF data (date, location)
             - Automatic video conversion to H.264 (when FFmpeg/VLC available)
             - Merge Snapchat overlays/captions onto photos and videos
             - Multi-threaded downloads with retry support
-            
+
             ### 📝 Usage
             1. Export your Snapchat data from Snapchat settings
             2. Extract the ZIP and locate `memories_history.json`
             3. Run the exe and select your JSON file
             4. Choose output directory and start download
-            
+
             ### ⚙️ System Requirements
             - Windows 10 or later
             - Internet connection for downloads
-            
+
             ---
             See [README.md](https://github.com/${{ github.repository }}/blob/main/README.md) for detailed instructions.
           draft: false
           prerelease: false
-      
+
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
         env:
@@ -113,7 +113,7 @@ jobs:
           asset_path: ./dist/SnapchatMemoriesDownloader.exe
           asset_name: SnapchatMemoriesDownloader.exe
           asset_content_type: application/vnd.microsoft.portable-executable
-      
+
       - name: Upload build artifacts (for debugging)
         uses: actions/upload-artifact@v4
         if: always()
